@@ -46,14 +46,20 @@ jobs:
           if [ -f ci-signing/release.jks ]; then
             STORE_PW=$(grep '^storePassword=' ci-signing/signing.properties | cut -d= -f2)
             ALIAS=$(grep '^keyAlias=' ci-signing/signing.properties | cut -d= -f2)
-            KEY_PW=$(grep '^keyPassword=' ci-signing/signing.properties | cut -d= -f2)
+            # 新 JDK 的 keytool 默认生成 PKCS12（.jks 只是文件名），且 PKCS12 的
+            # key 密码强制等于 store 密码（生成时指定的 keypass 会被忽略）。
+            # 这里转成真正的 JKS 并统一用 storePassword，否则 AGP 读 key 会解密失败。
+            keytool -importkeystore -noprompt \
+              -srckeystore ci-signing/release.jks -srcstorepass "$STORE_PW" -srcstoretype PKCS12 \
+              -destkeystore ci-signing/release-jks.jks -deststorepass "$STORE_PW" -deststoretype JKS \
+              -destkeypass "$STORE_PW"
             {
-              echo "STORE_FILE=${{ github.workspace }}/ci-signing/release.jks"
+              echo "STORE_FILE=${{ github.workspace }}/ci-signing/release-jks.jks"
               echo "STORE_PASSWORD=$STORE_PW"
               echo "KEY_ALIAS=$ALIAS"
-              echo "KEY_PASSWORD=$KEY_PW"
+              echo "KEY_PASSWORD=$STORE_PW"
             } > keystore.properties
-            echo "✅ 使用 ci-signing 签名密钥"
+            echo "✅ 已转换 PKCS12 → JKS 并配置签名（alias=$ALIAS）"
           else
             echo "⚠️ 未找到 ci-signing/release.jks，使用 debug 签名"
           fi
