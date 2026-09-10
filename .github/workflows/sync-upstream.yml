@@ -1,0 +1,67 @@
+name: 同步上游 (Sync Upstream)
+
+on:
+  schedule:
+    # 每天 UTC 00:00 = 北京时间 08:00
+    - cron: '0 0 * * *'
+  workflow_dispatch: {} # 支持手动触发
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 配置 Git 身份
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: 同步上游 main（跳过 README 与 workflows）
+        env:
+          UPSTREAM: https://github.com/Mr060805/MineChat.git
+        run: |
+          set -e
+
+          # 1. 拉取上游默认分支（main）
+          git remote add upstream "$UPSTREAM" 2>/dev/null || git remote set-url upstream "$UPSTREAM"
+          git fetch --no-tags upstream main
+
+          # 2. 以本地 main 为基准
+          git checkout -B main origin/main
+
+          # 3. 全量替换为上游内容（先清空再取上游文件，
+          #    这样上游删除的文件也会被正确移除，且不会产生合并冲突）
+          git rm -rf --quiet . 2>/dev/null || true
+          git checkout upstream/main -- .
+
+          # 4. 恢复受保护文件：README.md（本 fork 说明文档，不跟随上游）
+          git checkout HEAD -- README.md 2>/dev/null || true
+
+          # 5. 恢复受保护目录：.github/workflows/（只保留本仓库自己的 workflow）
+          if git ls-tree HEAD --name-only .github/workflows/ 2>/dev/null | grep -q .; then
+            git checkout HEAD -- .github/workflows/
+          else
+            # 本地没有 workflows 目录时，丢弃上游带入的文件
+            git rm -r --cached --quiet .github/workflows/ 2>/dev/null || true
+            rm -rf .github/workflows
+          fi
+
+          # 6. 提交并推送（无变更则跳过）
+          git add -A
+          if git diff --cached --quiet; then
+            echo "上游无新提交，跳过"
+            exit 0
+          fi
+          git commit -m "chore: 同步上游 main（跳过 README 与 workflows）"
+          git push origin main
