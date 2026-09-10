@@ -1,0 +1,80 @@
+package cn.mine.minestars.ui.pages.extensions
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import me.rerere.hugeicons.HugeIcons
+import cn.mine.minestars.R
+import me.rerere.hugeicons.stroke.Book03
+import me.rerere.hugeicons.stroke.Folder01
+import me.rerere.hugeicons.stroke.Puzzle
+import me.rerere.hugeicons.stroke.Zap
+import cn.mine.minestars.Screen
+import cn.mine.minestars.ui.components.nav.BackButton
+import cn.mine.minestars.ui.components.ui.CardGroup
+import cn.mine.minestars.ui.context.LocalNavController
+import cn.mine.minestars.ui.theme.CustomColors
+import cn.mine.minestars.utils.plus
+
+@Composable
+fun ExtensionsPage() {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val navController = LocalNavController.current
+
+    Scaffold(
+        topBar = {
+            LargeFlexibleTopAppBar(
+                title = { Text(stringResource(R.string.extensions_page_title)) },
+                navigationIcon = { BackButton() },
+                scrollBehavior = scrollBehavior,
+                colors = CustomColors.topBarColors
+            )
+        },
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = CustomColors.topBarColors.containerColor
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = innerPadding + PaddingValues(8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                CardGroup(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    title = { Text(stringResource(R.string.extensions_page_section_extensions)) },
+                ) {
+                    item(
+                        onClick = { navController.navigate(Screen.QuickMessages) },
+                        leadingContent = { Icon(HugeIcons.Zap, null) },
+                        headlineContent = { Text(stringResource(R.string.assistant_page_quick_messages)) },
+                        supportingContent = { Text(stringResource(R.string.extensions_page_quick_messages_desc)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.Skills) },
+                        leadingContent = { Icon(HugeIcons.Puzzle, null) },
+                        headlineContent = { Text(stringResource(R.string.extensions_page_agent_skills)) },
+                        supportingContent = { Text(stringResource(R.string.extensions_page_agent_skills_desc)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.Workspaces) },
+                        leadingContent = { Icon(HugeIcons.Folder01, null) },
+                        headlineContent = { Text(stringResource(R.string.extensions_page_workspace)) },
+                        supportingContent = { Text(stringResource(R.string.extensions_page_workspace_desc)) },
+                    )
+                }
+            }
+        }
+    }
+}

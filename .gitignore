@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.cursor
+.history
+.kotlin
+
+# ==== 敏感文件 —— 请勿提交 ====
+/keystore
+/keystore.properties
+*.jks
+*.keystore
+local.properties.bak
+
+# 模块构建产物
+build/
+
+# Claude Code 本地配置
+/.claude/settings.local.json
