@@ -1,0 +1,95 @@
+name: 生成安卓签名 (One-shot)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-signing-generator
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # GITHUB_TOKEN 无法写入 secrets，必须由用户预先配置一个有 repo 权限的 PAT
+      - name: 校验 GH_PAT 是否已配置
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_PAT" ]; then
+            echo "::error::未检测到 GH_PAT secret"
+            echo "请先在仓库 Settings → Secrets and variables → Actions 中创建："
+            echo "  名称: GH_PAT"
+            echo "  值: 一个有 repo 权限的 Personal Access Token"
+            echo "     创建地址: https://github.com/settings/tokens/new?scopes=repo"
+            exit 1
+          fi
+          echo "GH_PAT 已配置 ✓"
+
+      - name: 生成随机密码与别名
+        id: creds
+        run: |
+          echo "store_pw=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 32)" >> "$GITHUB_OUTPUT"
+          echo "key_pw=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | head -c 32)" >> "$GITHUB_OUTPUT"
+          echo "alias=minechat" >> "$GITHUB_OUTPUT"
+
+      - name: 生成 keystore（RSA 2048 / 100 年有效期）
+        run: |
+          keytool -genkeypair -v \
+            -keystore minechat-release.keystore \
+            -alias "${{ steps.creds.outputs.alias }}" \
+            -keyalg RSA -keysize 2048 -validity 36500 \
+            -storepass "${{ steps.creds.outputs.store_pw }}" \
+            -keypass "${{ steps.creds.outputs.key_pw }}" \
+            -dname "CN=MineChat, OU=ook826092-cloud, O=ook826092-cloud, L=Beijing, ST=Beijing, C=CN"
+          echo "keystore 生成完成："
+          ls -la minechat-release.keystore
+
+      - name: 写入 GitHub Secrets
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          B64=$(base64 -w0 minechat-release.keystore)
+          gh secret set ANDROID_KEYSTORE_BASE64 --body "$B64" --repo "$GITHUB_REPOSITORY"
+          gh secret set KEYSTORE_PASSWORD --body "${{ steps.creds.outputs.store_pw }}" --repo "$GITHUB_REPOSITORY"
+          gh secret set KEY_ALIAS --body "${{ steps.creds.outputs.alias }}" --repo "$GITHUB_REPOSITORY"
+          gh secret set KEY_PASSWORD --body "${{ steps.creds.outputs.key_pw }}" --repo "$GITHUB_REPOSITORY"
+          echo "Secrets 写入完成 ✓"
+          gh secret list --repo "$GITHUB_REPOSITORY"
+
+      - name: 输出签名凭据（请立即保存到本地密码管理器！）
+        run: |
+          echo "============================================================"
+          echo " 请立即保存以下安卓签名信息（Secrets 写入后不可回读！）"
+          echo "------------------------------------------------------------"
+          echo "  keystore       : 已存入 secret [ANDROID_KEYSTORE_BASE64]"
+          echo "  keyAlias       : ${{ steps.creds.outputs.alias }}"
+          echo "  storePassword  : ${{ steps.creds.outputs.store_pw }}"
+          echo "  keyPassword    : ${{ steps.creds.outputs.key_pw }}"
+          echo "------------------------------------------------------------"
+          echo " 构建时还原 keystore："
+          echo "   echo \"\$ANDROID_KEYSTORE_BASE64\" | base64 -d > keystore.jks"
+          echo " 对应 key.properties 模板："
+          echo "   storeFile=keystore.jks"
+          echo "   storePassword=${{ steps.creds.outputs.store_pw }}"
+          echo "   keyAlias=${{ steps.creds.outputs.alias }}"
+          echo "   keyPassword=${{ steps.creds.outputs.key_pw }}"
+          echo "============================================================"
+
+      - name: 自毁（删除本一次性 workflow）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/generate-android-signing.yml
+          git commit -m "chore: 签名文件已生成并存入 secrets，移除一次性 workflow"
+          git push
+          echo "已自毁 ✓ 一次性 workflow 已从仓库移除"
