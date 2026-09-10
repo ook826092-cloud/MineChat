@@ -10,7 +10,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: minechat-build-apk
+  group: minechat-build-apk-v2
   cancel-in-progress: true
 
 jobs:
