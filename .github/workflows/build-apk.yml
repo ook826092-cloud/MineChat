@@ -58,6 +58,15 @@ jobs:
             echo "⚠️ 未找到 ci-signing/release.jks，使用 debug 签名"
           fi
 
+      - name: 修复上游大小写问题（settings 注册 :rag，目录实际为 RAG）
+        run: |
+          # 上游在大小写不敏感系统开发：settings.gradle.kts include(":rag")
+          # 但仓库目录名为 RAG，Linux 下找不到，建软链接绕过（不改上游源码）
+          if [ -d RAG ] && [ ! -e rag ]; then
+            ln -s RAG rag
+            echo "✅ 已创建软链接 rag -> RAG"
+          fi
+
       - name: 编译 Release APK
         run: |
           chmod +x ./gradlew

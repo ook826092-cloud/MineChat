@@ -48,6 +48,14 @@ jobs:
           # 4. 恢复受保护文件：README.md（本 fork 说明文档，不跟随上游）
           git checkout HEAD -- README.md 2>/dev/null || true
 
+          # 4b. 恢复受保护目录：ci-signing/（本 fork 签名文件，不跟随上游）
+          if git ls-tree HEAD --name-only ci-signing/ 2>/dev/null | grep -q .; then
+            git checkout HEAD -- ci-signing/
+          else
+            git rm -r --cached --quiet ci-signing/ 2>/dev/null || true
+            rm -rf ci-signing
+          fi
+
           # 5. 恢复受保护目录：.github/workflows/（只保留本仓库自己的 workflow）
           if git ls-tree HEAD --name-only .github/workflows/ 2>/dev/null | grep -q .; then
             git checkout HEAD -- .github/workflows/
